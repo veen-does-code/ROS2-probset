@@ -1,114 +1,41 @@
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
-from turtlesim.srv import SetPen
+from turtlesim.srv import TeleportAbsolute
 import time
+import threading
 
 class DrawSquare(Node):
     def __init__(self):
         super().__init__('draw_square')
         self.publisher_ = self.create_publisher(Twist, '/turtle1/cmd_vel', 10)
-        self.pen_client = self.create_client(SetPen, '/turtle1/set_pen')
-        self.pen_client.wait_for_service()
+        self.teleport_client = self.create_client(TeleportAbsolute, '/turtle1/teleport_absolute')
+        self.teleport_client.wait_for_service()
 
-    def move(self):
+    def publish(self, linear, angular, iterations):
         msg = Twist()
+        msg.linear.x = linear
+        msg.angular.z = angular
+        for _ in range(iterations):
+            self.publisher_.publish(msg)
+            time.sleep(0.1)
 
-        for i in range(4):
-            # Move forward
-            msg.linear.x = 2.0
-            msg.angular.z = 0.0
-            for _ in range(10):
-                self.publisher_.publish(msg)
-                time.sleep(0.1)
-
-            # Turn 90 degrees
-            msg.linear.x = 0.0
-            msg.angular.z = 1.57
-            for _ in range(10):
-                self.publisher_.publish(msg)
-                time.sleep(0.1)
-
-        # Stop
-        msg.linear.x = 0.0
-        msg.angular.z = 0.0
-        self.publisher_.publish(msg)
-        time.sleep(0.5)
-
-    def move_down(self):
-        msg = Twist()
-        req = SetPen.Request()
-        req.r = 0
-        req.g = 0
-        req.b = 0
-        req.width = 2
-        req.off = 1
-        self.pen_client.call_async(req)
+    def draw_square(self):
+        req = TeleportAbsolute.Request()
+        req.x, req.y, req.theta = 2.0, 2.0, 0.0  # face right
+        self.teleport_client.call_async(req)
         time.sleep(0.2)
 
-        msg.linear.x = 0.0
-        msg.angular.z = -1.57
-        for _ in range(10):
-            self.publisher_.publish(msg)
-            time.sleep(0.1)
-
-        msg.linear.x = 2.0
-        msg.angular.z = 0.0
-        for _ in range(10):
-            self.publisher_.publish(msg)
-            time.sleep(0.1)
-
-        msg.linear.x = 0.0
-        msg.angular.z = 1.57
-        for _ in range(10):
-            self.publisher_.publish(msg)
-            time.sleep(0.1)
-
-        msg.linear.x = 0.0
-        msg.angular.z = 0.0
-        self.publisher_.publish(msg)
-
-        req = SetPen.Request()
-        req.r = 255
-        req.g = 255
-        req.b = 255
-        req.width = 2
-        req.off = 0
-        self.pen_client.call_async(req)
-        time.sleep(0.5)
-
-
-    def move_tri(self):
-        msg = Twist()
-
-        for j in range(3):
-            msg.linear.x = 2.0
-            msg.angular.z = 0.0
-            for _ in range(10):
-                self.publisher_.publish(msg)
-                time.sleep(0.1)
-
-            msg.linear.x = 0.0
-            msg.angular.z = 2.094
-            for _ in range(10):
-                self.publisher_.publish(msg)
-                time.sleep(0.1)
-
-        msg.linear.x = 0.0
-        msg.angular.z = 0.0
-        self.publisher_.publish(msg)
+        for _ in range(4):
+            self.publish(2.0, 0.0, 20)    # forward
+            self.publish(0.0, 1.5708, 10) # turn left 90
 
 def main(args=None):
     rclpy.init(args=args)
     node = DrawSquare()
-    node.move()
-    # rclpy.spin_once(node)
-
-    node.move_down()
-    # rclpy.spin_once(node)
-
-    node.move_tri()
-    # rclpy.spin_once(node)
+    thread = threading.Thread(target=rclpy.spin, args=(node,), daemon=True)
+    thread.start()
+    node.draw_square()
     rclpy.shutdown()
 
 if __name__ == '__main__':

@@ -24,7 +24,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'draw_square = turtle_control.draw_square:main',
+            'draw_square= turtle_control.draw_square:main',
         ],
     },
 )
